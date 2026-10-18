@@ -1,0 +1,5 @@
+if(NOT DEFINED HOST OR NOT DEFINED ABI OR NOT DEFINED SOURCE_BUILD)
+  message(FATAL_ERROR "Explicit host/build facts required")
+endif()
+file(SHA256 "${HOST}" BINARY_DIGEST)
+file(WRITE "${HOST}.lexongine-build" "lexongine-host-build-v1\n${ABI}\n${SOURCE_BUILD}\n${BINARY_DIGEST}\n")

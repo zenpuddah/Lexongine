@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Explicit native CLI fixture budgets. Numerical policies match first-computation.xml.
+     Choose a disposable absolute cache directory before use; evidence files are create-new. -->
+<composition version="1">
+  <run id="cli-fixture-v1" clock="bar-clock-v1" driver="standalone"
+       execution="synchronous" sharing="exact" failure="stop" trace="steps"
+       retention_warning_steps="128"
+       retention_log_path="/tmp/lexongine-cli-retention.log"
+       retention_log_format="key_value_lines_v1" retention_log_open="create_new"
+       retention_log_flush="on_event" retention_log_failure="stop"
+       retention_log_overflow="stop" retention_log_max_bytes="2097152"
+       retention_log_max_events="16384"/>
+  <limits xml_bytes="1048576" xml_depth="16" xml_elements="512"
+          string_bytes="256" nodes="32" edges="64" requests="8"
+          source_updates="120" managed_buffer_bytes="536870912"
+          trace_events="4096" trace_message_bytes="256"/>
+  <plugins/>
+  <cache mode="automatic_read_write" backend="local_files"
+         directory="/tmp/lexongine-cli-cache-v1" matching="exact_full_scope"
+         trust="same_build_local_writer" integrity="sha256"
+         writer="single_process_lock" corruption="fail_preparation"
+         capacity="bypass_new_entries" cleanup="explicit_only"
+         max_entries="64" max_store_bytes="8388608" max_entry_bytes="2097152"
+         max_decoded_bytes="1048576"/>
+  <sources>
+    <source id="bars" operation="qaedalus.fixture_bars" semantic_version="1"
+            implementation_id="fixture-generator-v1" source_version="fixture-bars-v1"
+            clock="bar-clock-v1" begin_step="0" end_step="120"
+            completeness="complete_only" empty="reject" missing="fail" missing_intervals="strict"
+            availability="interval_end_zero_lag_fixture"/>
+  </sources>
+  <nodes>
+    <node id="close" operation="qaedalus.bar_close" semantic_version="1"
+          implementation_id="builtin-v1" alignment="same_step" initialization="stateless">
+      <input port="bar" producer="bars" output="bar" prior_outputs="0" missing_intervals="strict"/>
+    </node>
+    <node id="fast_A" operation="statistics.sma_price" semantic_version="1"
+          implementation_id="builtin-v1" alignment="same_step" initialization="empty_at_step_0">
+      <param name="window" value="20"/>
+      <param name="max_abs_input_raw" value="102000000000"/>
+      <param name="sum_width" value="signed64"/>
+      <param name="rounding" value="nearest_ties_even"/>
+      <param name="overflow" value="fail"/>
+      <input port="price" producer="close" output="price" prior_outputs="0" missing_intervals="strict"/>
+    </node>
+    <node id="fast_B" operation="statistics.sma_price" semantic_version="1"
+          implementation_id="builtin-v1" alignment="same_step" initialization="empty_at_step_0">
+      <param name="window" value="20"/>
+      <param name="max_abs_input_raw" value="102000000000"/>
+      <param name="sum_width" value="signed64"/>
+      <param name="rounding" value="nearest_ties_even"/>
+      <param name="overflow" value="fail"/>
+      <input port="price" producer="close" output="price" prior_outputs="0" missing_intervals="strict"/>
+    </node>
+    <node id="slow" operation="statistics.sma_price" semantic_version="1"
+          implementation_id="builtin-v1" alignment="same_step" initialization="empty_at_step_0">
+      <param name="window" value="50"/>
+      <param name="max_abs_input_raw" value="102000000000"/>
+      <param name="sum_width" value="signed64"/>
+      <param name="rounding" value="nearest_ties_even"/>
+      <param name="overflow" value="fail"/>
+      <input port="price" producer="close" output="price" prior_outputs="0" missing_intervals="strict"/>
+    </node>
+    <node id="spread" operation="qaedalus.price_difference" semantic_version="1"
+          implementation_id="builtin-v1" alignment="same_step" initialization="stateless">
+      <param name="overflow" value="fail"/>
+      <input port="left" producer="fast_A" output="mean" prior_outputs="0" missing_intervals="strict"/>
+      <input port="right" producer="slow" output="mean" prior_outputs="0" missing_intervals="strict"/>
+    </node>
+  </nodes>
+  <observations>
+    <observe id="fast_A_trial" producer="fast_A" output="mean" begin_step="49" end_step="120" absence="require_value" prior_outputs="0" missing_intervals="strict"/>
+    <observe id="fast_B_trial" producer="fast_B" output="mean" begin_step="49" end_step="120" absence="require_value" prior_outputs="0" missing_intervals="strict"/>
+    <observe id="slow_trial" producer="slow" output="mean" begin_step="49" end_step="120" absence="require_value" prior_outputs="0" missing_intervals="strict"/>
+    <observe id="spread_trial" producer="spread" output="difference" begin_step="49" end_step="120" absence="require_value" prior_outputs="0" missing_intervals="strict"/>
+  </observations>
+</composition>
