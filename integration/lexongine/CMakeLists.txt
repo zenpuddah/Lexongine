@@ -377,23 +377,53 @@ if(APPLE)
             "$<TARGET_FILE:lexongine_test_plugin_5>" "$<TARGET_FILE:lexongine_test_plugin_6>"
             "$<TARGET_FILE:lexongine_test_plugin_7>" "$<TARGET_FILE:lexongine_test_plugin_8>"
             "${CMAKE_CURRENT_BINARY_DIR}")
+    # Target properties are the exported native build interface. External callers
+    # cannot rely on variables in this add_subdirectory's lexical scope.
+    set_property(TARGET lexongine_core PROPERTY LEXONGINE_HOST_ABI_FACTS "${LEXONGINE_ABI_FACTS}")
+    set_property(TARGET lexongine_core PROPERTY LEXONGINE_HOST_BUILD_CONTRACT
+                                                "${LEXONGINE_BUILD_CONTRACT_ID}")
+    set_property(
+        TARGET lexongine_core PROPERTY LEXONGINE_HOST_CORE_INPUTS
+                                       "${LEXONGINE_CORE_SOURCES};${LEXONGINE_SDK_HEADERS}")
     function(lexongine_bind_host_build TARGET)
+        cmake_parse_arguments(HOST "" "ROOT;DEPENDENCY_FACTS;BUILD_FACTS" "INPUTS" ${ARGN})
+        if(HOST_UNPARSED_ARGUMENTS OR HOST_KEYWORDS_MISSING_VALUES)
+            message(FATAL_ERROR "Invalid explicit native-host build arguments")
+        endif()
+        set(DEFINITION_ROOT "${CMAKE_CURRENT_FUNCTION_LIST_DIR}")
+        get_target_property(ABI_FACTS lexongine_core LEXONGINE_HOST_ABI_FACTS)
+        get_target_property(BUILD_CONTRACT lexongine_core LEXONGINE_HOST_BUILD_CONTRACT)
+        get_target_property(CORE_INPUTS lexongine_core LEXONGINE_HOST_CORE_INPUTS)
+        if((HOST_ROOT
+            OR HOST_DEPENDENCY_FACTS
+            OR HOST_BUILD_FACTS
+            OR NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${DEFINITION_ROOT}"
+           )
+           AND NOT HOST_INPUTS)
+            message(FATAL_ERROR "External native-host binding requires explicit INPUTS")
+        endif()
+        if(HOST_INPUTS
+           AND (NOT IS_ABSOLUTE "${HOST_ROOT}"
+                OR NOT HOST_DEPENDENCY_FACTS
+                OR NOT HOST_BUILD_FACTS))
+            message(
+                FATAL_ERROR "External host requires ROOT, INPUTS, DEPENDENCY_FACTS and BUILD_FACTS")
+        endif()
         file(
             GLOB
             BUILTIN_INPUTS
             CONFIGURE_DEPENDS
-            "${CMAKE_CURRENT_LIST_DIR}/*.cpp"
-            "${CMAKE_CURRENT_LIST_DIR}/*.hpp"
-            "${CMAKE_CURRENT_LIST_DIR}/*.in"
-            "${CMAKE_CURRENT_LIST_DIR}/*.cmake"
-            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.cpp"
-            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.hpp"
-            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/data/*.hpp")
-        list(APPEND BUILTIN_INPUTS ${LEXONGINE_CORE_SOURCES} ${LEXONGINE_SDK_HEADERS}
-             "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt"
-             "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/storage/file_integrity.hpp")
-        if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
-            list(APPEND BUILTIN_INPUTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
+            "${DEFINITION_ROOT}/*.cpp"
+            "${DEFINITION_ROOT}/*.hpp"
+            "${DEFINITION_ROOT}/*.in"
+            "${DEFINITION_ROOT}/*.cmake"
+            "${DEFINITION_ROOT}/../../src/quant/lexongine/*.cpp"
+            "${DEFINITION_ROOT}/../../src/quant/lexongine/*.hpp"
+            "${DEFINITION_ROOT}/../../src/quant/data/*.hpp")
+        list(APPEND BUILTIN_INPUTS ${CORE_INPUTS} "${DEFINITION_ROOT}/CMakeLists.txt"
+             "${DEFINITION_ROOT}/../../src/quant/storage/file_integrity.hpp")
+        if(EXISTS "${DEFINITION_ROOT}/../../CMakeLists.txt")
+            list(APPEND BUILTIN_INPUTS "${DEFINITION_ROOT}/../../CMakeLists.txt")
         endif()
         list(REMOVE_DUPLICATES BUILTIN_INPUTS)
         list(SORT BUILTIN_INPUTS)
@@ -401,12 +431,30 @@ if(APPLE)
             DIRECTORY
             APPEND
             PROPERTY CMAKE_CONFIGURE_DEPENDS ${BUILTIN_INPUTS})
-        set(CONTENT "${LEXONGINE_ABI_FACTS}\nhost_target=${TARGET}\n")
+        set(CONTENT "${ABI_FACTS}\nhost_target=${TARGET}\n")
         foreach(INPUT IN LISTS BUILTIN_INPUTS)
             file(SHA256 "${INPUT}" INPUT_DIGEST)
-            file(RELATIVE_PATH INPUT_NAME "${CMAKE_CURRENT_LIST_DIR}/../.." "${INPUT}")
+            file(RELATIVE_PATH INPUT_NAME "${DEFINITION_ROOT}/../.." "${INPUT}")
             string(APPEND CONTENT "${INPUT_NAME}:${INPUT_DIGEST}\n")
         endforeach()
+        if(HOST_INPUTS)
+            list(REMOVE_DUPLICATES HOST_INPUTS)
+            list(SORT HOST_INPUTS)
+            foreach(INPUT IN LISTS HOST_INPUTS)
+                if(NOT IS_ABSOLUTE "${INPUT}" OR NOT EXISTS "${INPUT}")
+                    message(FATAL_ERROR "Host input must be an existing absolute file: ${INPUT}")
+                endif()
+                file(SHA256 "${INPUT}" INPUT_DIGEST)
+                file(RELATIVE_PATH INPUT_NAME "${HOST_ROOT}" "${INPUT}")
+                string(APPEND CONTENT "external:${INPUT_NAME}:${INPUT_DIGEST}\n")
+            endforeach()
+            set_property(
+                DIRECTORY
+                APPEND
+                PROPERTY CMAKE_CONFIGURE_DEPENDS ${HOST_INPUTS})
+            string(APPEND CONTENT
+                   "dependencies=${HOST_DEPENDENCY_FACTS}\nhost_build=${HOST_BUILD_FACTS}\n")
+        endif()
         string(SHA256 HOST_SOURCE_BUILD "${CONTENT}")
         target_compile_definitions(${TARGET}
                                    PRIVATE "LEXONGINE_HOST_SOURCE_BUILD=\"${HOST_SOURCE_BUILD}\"")
@@ -415,10 +463,12 @@ if(APPLE)
             TARGET ${TARGET}
             POST_BUILD
             COMMAND
-                "${CMAKE_COMMAND}" "-DHOST=$<TARGET_FILE:${TARGET}>"
-                "-DABI=${LEXONGINE_BUILD_CONTRACT_ID}" "-DSOURCE_BUILD=${HOST_SOURCE_BUILD}" -P
-                "${CMAKE_CURRENT_LIST_DIR}/emit_host_manifest.cmake"
+                "${CMAKE_COMMAND}" "-DHOST=$<TARGET_FILE:${TARGET}>" "-DABI=${BUILD_CONTRACT}"
+                "-DSOURCE_BUILD=${HOST_SOURCE_BUILD}" -P
+                "${DEFINITION_ROOT}/emit_host_manifest.cmake"
             VERBATIM)
+        set_property(TARGET ${TARGET} PROPERTY LEXONGINE_HOST_SOURCE_FINGERPRINT
+                                               "${HOST_SOURCE_BUILD}")
     endfunction()
     if(TARGET lexongine_execution_tests)
         lexongine_bind_host_build(lexongine_execution_tests)

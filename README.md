@@ -14,6 +14,7 @@ validated outputs across runs.
 - Exact computation sharing and bounded, full-scope result reuse.
 - Resource accounting, provenance and required execution evidence.
 - XML configuration, a CLI, graph exports and trusted same-build native plugins.
+- Explicit native build binding for external hosted applications.
 
 The reference components use fixed-point prices: Bar close, signed-integer SMA,
 fixed-count lag and ordered subtraction. The included fixture generates 120
@@ -80,6 +81,11 @@ The standalone build includes the engine, reference components and the small set
 of canonical types/checksum helpers they need. The broader Qaedalus market-data
 reader integration is optional and uses an external checkout. Orders, fills,
 portfolio accounting and live execution are outside this repository's scope.
+
+The companion [Quadeplus backtester](https://github.com/zenpuddah/Quadeplus/blob/release/docs/backtesting.md)
+provides SMA, Keltner/ATR and stochastic research simulations using this engine.
+See [external native-host identity](docs/design.md#external-native-host-build-identity)
+for the application build interface.
 
 ## Contributing
 

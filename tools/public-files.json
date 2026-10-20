@@ -1,0 +1,18 @@
+{
+  "files": [
+    ".gitignore", ".clang-format", ".cmake-format.json", "ruff.toml",
+    "requirements-quality.txt", "CMakeLists.txt", "README.md",
+    ".github/workflows/style.yml", "tools/check_style.py", "tools/check_public.py",
+    "tools/public-files.json", "docs/build.md", "docs/design.md", "docs/usage.md",
+    "docs/verification.md", "docs/contributing.md", "integration/lexongine/CMakeLists.txt",
+    "src/quant/storage/file_integrity.hpp",
+    "docs/lexongine/examples/first-computation.xml",
+    "docs/lexongine/examples/cli-computation.xml"
+  ],
+  "source_directories": {
+    "src/lexongine": [".hpp", ".cpp"], "src/quant/lexongine": [".hpp", ".cpp"],
+    "src/quant/data": [".hpp"], "tests": [".cpp", ".hpp"],
+    "integration/lexongine": [".cpp", ".hpp", ".py", ".cmake", ".in"]
+  },
+  "excluded_files": []
+}

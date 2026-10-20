@@ -1,5 +1,13 @@
 # Verification
 
+## External hosted application support
+
+The current release includes the explicit external-host build interface used by
+Quadeplus. Its native standalone suite passes **24/24** on macOS arm64. The external
+caller probe confirms that changing host source changes the bound fingerprint and
+that a tampered sidecar is rejected. GitHub Actions now also checks the staged public
+path/content inventory; this is separate from the native execution tests.
+
 ## Formatting and lint update — 2026-10-20
 
 The formatted public tree passes the pinned [style checks](contributing.md),

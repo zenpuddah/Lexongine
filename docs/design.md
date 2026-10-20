@@ -78,3 +78,28 @@ failure status.
 The host API (`advance_one`, `finish`, `fail_host`, `abort_host`) uses the same
 scheduler as standalone execution. Host trial/account state stays outside pure
 market-only features unless explicitly represented as declared inputs.
+
+## External native-host build identity
+
+External applications can bind their own code and configuration to the inspected
+native build using the exported CMake helper:
+
+```cmake
+lexongine_bind_host_build(my_host
+  ROOT "${absolute_host_source_root}"
+  INPUTS ${absolute_host_sources_headers_and_build_files}
+  DEPENDENCY_FACTS "explicit dependency revisions"
+  BUILD_FACTS "explicit compiler and configuration facts")
+```
+
+External calls require all four arguments. Inputs must be existing absolute files;
+their sorted content hashes and root-relative names join the exported engine ABI,
+core-source and dependency/build facts. Helper scripts resolve against their
+definition directory, independently of the caller's directory. Existing in-tree
+target-only calls remain supported.
+
+The compiled fingerprint and generated sidecar bind the same value. Runtime
+inspection still validates the actual executable, sidecar, loaded dependencies
+and SDK contract. Applications own their full input inventory and truthful build
+facts. [Quadeplus](https://github.com/zenpuddah/Quadeplus) uses this interface for its
+daily research backtester; financial accounts and execution remain application-owned.
