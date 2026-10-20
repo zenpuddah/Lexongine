@@ -1,33 +1,156 @@
 #include "point_replay_test_support.hpp"
 namespace {
-using namespace lexongine;using namespace lexongine::integration_test;
-void complete_point_pipeline_all_splits(){auto reader=std::make_shared<CheckedReader>();const auto binding=trade_binding();auto source=take(qaedalus::prepare_trade_replay(reader,binding,resources()));auto fixture_account=resources();
-    auto direct=std::make_shared<DirectTradeData>(DirectTradeData{take(fixture_account->reserve(ResourceKind::Source,65536)),source.metadata(),{source.timeline().begin(),source.timeline().end()},{}});for(const auto& row:reader->rows){direct->rows.push_back(std::get<Trade>(row.event));}direct->metadata.provider_implementation.binary_digest[0]=std::byte{19};auto direct_binding=binding;direct_binding.implementation=direct->metadata.provider_implementation;
-    PointEnvironment fixture({},direct_binding,direct);auto fp=take(fixture.prepare());auto [fixture_report,fixture_values]=execute_point(fp.plan,fixture.types.price);require(fixture_report.acceptance==AcceptanceStatus::Accepted&&fixture_values->values.size()==2,"direct point fixture failed");
-    std::vector<SeenValue> baseline;Sha256 identity{};
-    for(std::size_t split=0;split<=reader->rows.size();++split){reader->split=split;PointEnvironment env(reader,binding);auto prepared=take(env.prepare());require(prepared.plan&&prepared.rejected.empty(),"point graph preparation failed");const auto calls=reader->checked_calls;auto [report,seen]=execute_point(prepared.plan,env.types.price);
-        require(report.acceptance==AcceptanceStatus::Accepted&&report.complete_updates==3&&report.gap_events==0&&report.producers[2].advances==3&&reader->checked_calls==calls&&reader->unchecked_calls==0,"point execution changed succession, reset state or reopened reader");
-        require(seen->values.size()==2&&seen->values[0].raw==8&&seen->values[1].raw==8&&seen->values[0].key.sequence==1&&seen->values[1].key.sequence==2&&seen->values[1].available==112,"point SMA changed tied rounding or original activation");
-        require(std::get<PointTime>(seen->values[1].parents.back().publication.extent).event_time_ns==95,"point replay sorted or fabricated event times");
-        if(split==0){baseline=seen->values;identity=prepared.plan->identity(2);}else{require(seen->values==baseline&&prepared.plan->identity(2)==identity,"physical split changed numerical lineage/identity");}
-        for(std::size_t i=0;i<seen->values.size();++i){const auto& a=seen->values[i];const auto& b=fixture_values->values[i];require(a.key==b.key&&a.raw==b.raw&&a.available==b.available&&a.parents.size()==b.parents.size(),"reader and fixture observable behavior differs");for(std::size_t j=0;j<a.parents.size();++j){const auto& x=a.parents[j];const auto& y=b.parents[j];require(x.input_port==y.input_port&&x.publication.key==y.publication.key&&x.publication.extent==y.publication.extent&&x.publication.available_at_ns==y.publication.available_at_ns,"fixture/replay parent timing differs");}}
-        require(prepared.plan->identity(2)!=fp.plan->identity(2)&&prepared.plan->source().metadata().source_reference_digest==fp.plan->source().metadata().source_reference_digest,"provider identity or original reference distinction lost");
+using namespace lexongine;
+using namespace lexongine::integration_test;
+void complete_point_pipeline_all_splits() {
+    auto reader = std::make_shared<CheckedReader>();
+    const auto binding = trade_binding();
+    auto source = take(qaedalus::prepare_trade_replay(reader, binding, resources()));
+    auto fixture_account = resources();
+    auto direct = std::make_shared<DirectTradeData>(
+        DirectTradeData{take(fixture_account->reserve(ResourceKind::Source, 65536)),
+                        source.metadata(),
+                        {source.timeline().begin(), source.timeline().end()},
+                        {}});
+    for (const auto &row : reader->rows) {
+        direct->rows.push_back(std::get<Trade>(row.event));
+    }
+    direct->metadata.provider_implementation.binary_digest[0] = std::byte{19};
+    auto direct_binding = binding;
+    direct_binding.implementation = direct->metadata.provider_implementation;
+    PointEnvironment fixture({}, direct_binding, direct);
+    auto fp = take(fixture.prepare());
+    auto [fixture_report, fixture_values] = execute_point(fp.plan, fixture.types.price);
+    require(fixture_report.acceptance == AcceptanceStatus::Accepted &&
+                fixture_values->values.size() == 2,
+            "direct point fixture failed");
+    std::vector<SeenValue> baseline;
+    Sha256 identity{};
+    for (std::size_t split = 0; split <= reader->rows.size(); ++split) {
+        reader->split = split;
+        PointEnvironment env(reader, binding);
+        auto prepared = take(env.prepare());
+        require(prepared.plan && prepared.rejected.empty(), "point graph preparation failed");
+        const auto calls = reader->checked_calls;
+        auto [report, seen] = execute_point(prepared.plan, env.types.price);
+        require(report.acceptance == AcceptanceStatus::Accepted && report.complete_updates == 3 &&
+                    report.gap_events == 0 && report.producers[2].advances == 3 &&
+                    reader->checked_calls == calls && reader->unchecked_calls == 0,
+                "point execution changed succession, reset state or reopened reader");
+        require(seen->values.size() == 2 && seen->values[0].raw == 8 && seen->values[1].raw == 8 &&
+                    seen->values[0].key.sequence == 1 && seen->values[1].key.sequence == 2 &&
+                    seen->values[1].available == 112,
+                "point SMA changed tied rounding or original activation");
+        require(
+            std::get<PointTime>(seen->values[1].parents.back().publication.extent).event_time_ns ==
+                95,
+            "point replay sorted or fabricated event times");
+        if (split == 0) {
+            baseline = seen->values;
+            identity = prepared.plan->identity(2);
+        } else {
+            require(seen->values == baseline && prepared.plan->identity(2) == identity,
+                    "physical split changed numerical lineage/identity");
+        }
+        for (std::size_t i = 0; i < seen->values.size(); ++i) {
+            const auto &a = seen->values[i];
+            const auto &b = fixture_values->values[i];
+            require(a.key == b.key && a.raw == b.raw && a.available == b.available &&
+                        a.parents.size() == b.parents.size(),
+                    "reader and fixture observable behavior differs");
+            for (std::size_t j = 0; j < a.parents.size(); ++j) {
+                const auto &x = a.parents[j];
+                const auto &y = b.parents[j];
+                require(x.input_port == y.input_port && x.publication.key == y.publication.key &&
+                            x.publication.extent == y.publication.extent &&
+                            x.publication.available_at_ns == y.publication.available_at_ns,
+                        "fixture/replay parent timing differs");
+            }
+        }
+        require(prepared.plan->identity(2) != fp.plan->identity(2) &&
+                    prepared.plan->source().metadata().source_reference_digest ==
+                        fp.plan->source().metadata().source_reference_digest,
+                "provider identity or original reference distinction lost");
     }
 }
-void point_reuse_pinning_and_checked_failure(){auto reader=std::make_shared<CheckedReader>();PointEnvironment first(reader,trade_binding());auto config=cache();auto memory=MemoryStore::make(config,first.types.price);auto prepared=take(first.prepare(2,Driver::Standalone,&config,memory.store()));auto [report,seen]=execute_point(prepared.plan,first.types.price);require(report.acceptance==AcceptanceStatus::Accepted&&memory.entries()==2,"point artifacts not staged");
-    PointEnvironment second(reader,trade_binding());auto repeat=take(second.prepare(2,Driver::Hosted,&config,memory.store()));auto [cached,values]=execute_point(repeat.plan,second.types.price);require(cached.acceptance==AcceptanceStatus::Accepted&&cached.producers[2].advances==0&&values->values==seen->values,"point artifact replay changed lineage/timing");
-    auto calls=memory.lookups();reader->fail_after=true;PointEnvironment bad(reader,trade_binding());auto rejected=take(bad.prepare(2,Driver::Hosted,&config,memory.store()));require(!rejected.plan&&memory.lookups()==calls,"prior point artifacts bypassed checked-reader final validation");reader->fail_after=false;
-    reader->unsupported=true;PointEnvironment unsupported(reader,trade_binding());auto unverified=take(unsupported.prepare());require(!unverified.plan&&reader->unchecked_calls==0,"unsupported checked reader used fallback");reader->unsupported=false;
-    std::shared_ptr<const PreparedPlan> pinned;RegisteredType<Price> price=first.types.price;auto independent=std::make_shared<CheckedReader>();std::weak_ptr<CheckedReader> weak=independent;
-    {PointEnvironment isolated(independent,trade_binding());pinned=take(isolated.prepare()).plan;price=isolated.types.price;}
-    independent.reset();require(weak.expired(),"prepared numeric pipeline retained mutable reader");auto [retained,copied]=execute_point(pinned,price);require(retained.acceptance==AcceptanceStatus::Accepted&&copied->values==seen->values,"pipeline depended on provider/registry lifetime");
+void point_reuse_pinning_and_checked_failure() {
+    auto reader = std::make_shared<CheckedReader>();
+    PointEnvironment first(reader, trade_binding());
+    auto config = cache();
+    auto memory = MemoryStore::make(config, first.types.price);
+    auto prepared = take(first.prepare(2, Driver::Standalone, &config, memory.store()));
+    auto [report, seen] = execute_point(prepared.plan, first.types.price);
+    require(report.acceptance == AcceptanceStatus::Accepted && memory.entries() == 2,
+            "point artifacts not staged");
+    PointEnvironment second(reader, trade_binding());
+    auto repeat = take(second.prepare(2, Driver::Hosted, &config, memory.store()));
+    auto [cached, values] = execute_point(repeat.plan, second.types.price);
+    require(cached.acceptance == AcceptanceStatus::Accepted && cached.producers[2].advances == 0 &&
+                values->values == seen->values,
+            "point artifact replay changed lineage/timing");
+    auto calls = memory.lookups();
+    reader->fail_after = true;
+    PointEnvironment bad(reader, trade_binding());
+    auto rejected = take(bad.prepare(2, Driver::Hosted, &config, memory.store()));
+    require(!rejected.plan && memory.lookups() == calls,
+            "prior point artifacts bypassed checked-reader final validation");
+    reader->fail_after = false;
+    reader->unsupported = true;
+    PointEnvironment unsupported(reader, trade_binding());
+    auto unverified = take(unsupported.prepare());
+    require(!unverified.plan && reader->unchecked_calls == 0,
+            "unsupported checked reader used fallback");
+    reader->unsupported = false;
+    std::shared_ptr<const PreparedPlan> pinned;
+    RegisteredType<Price> price = first.types.price;
+    auto independent = std::make_shared<CheckedReader>();
+    std::weak_ptr<CheckedReader> weak = independent;
+    {
+        PointEnvironment isolated(independent, trade_binding());
+        pinned = take(isolated.prepare()).plan;
+        price = isolated.types.price;
+    }
+    independent.reset();
+    require(weak.expired(), "prepared numeric pipeline retained mutable reader");
+    auto [retained, copied] = execute_point(pinned, price);
+    require(retained.acceptance == AcceptanceStatus::Accepted && copied->values == seen->values,
+            "pipeline depended on provider/registry lifetime");
 }
-void timing_capability_admission(){auto reader=std::make_shared<CheckedReader>();PointEnvironment env(reader,trade_binding());const auto mean=take(env.registry.resolve({"statistics","sma_price",1,"builtin-v1"}));require(std::find(mean->contract().timing_protocols.begin(),mean->contract().timing_protocols.end(),"point_v1")!=mean->contract().timing_protocols.end(),"count SMA does not explicitly declare point timing");
+void timing_capability_admission() {
+    auto reader = std::make_shared<CheckedReader>();
+    PointEnvironment env(reader, trade_binding());
+    const auto mean = take(env.registry.resolve({"statistics", "sma_price", 1, "builtin-v1"}));
+    require(std::find(mean->contract().timing_protocols.begin(),
+                      mean->contract().timing_protocols.end(),
+                      "point_v1") != mean->contract().timing_protocols.end(),
+            "count SMA does not explicitly declare point timing");
 }
-void interval_only_rejected_before_execution(){auto reader=std::make_shared<CheckedReader>();PointEnvironment env(reader,trade_binding());
-    const auto nodes=node("price","test.trade_price","stateless",input("trade","s","trade","strict"))+node("lag","series.lag_price","empty_at_step_0","<param name=\"lag_steps\" value=\"1\"/><param name=\"count_basis\" value=\"complete_bar_updates\"/>"+input("price","price","price","strict"));
-    auto prepared=take(prepare_text(xml(nodes,observe("lag","lag","lagged",1,3,"strict"),3,MissingIntervalPolicy::Strict,Driver::Hosted,true,nullptr,"test.trades"),env.registry,env.resolver,options(env.request,env.account,MissingIntervalPolicy::Strict)));
-    require(!prepared.plan&&!prepared.rejected.empty()&&prepared.rejected[0].cause.code==FailureCode::UnsupportedContract,"interval-only lag reached runtime on point source");
+void interval_only_rejected_before_execution() {
+    auto reader = std::make_shared<CheckedReader>();
+    PointEnvironment env(reader, trade_binding());
+    const auto nodes =
+        node("price", "test.trade_price", "stateless", input("trade", "s", "trade", "strict")) +
+        node("lag", "series.lag_price", "empty_at_step_0",
+             "<param name=\"lag_steps\" value=\"1\"/><param name=\"count_basis\" "
+             "value=\"complete_bar_updates\"/>" +
+                 input("price", "price", "price", "strict"));
+    auto prepared = take(prepare_text(
+        xml(nodes, observe("lag", "lag", "lagged", 1, 3, "strict"), 3,
+            MissingIntervalPolicy::Strict, Driver::Hosted, true, nullptr, "test.trades"),
+        env.registry, env.resolver,
+        options(env.request, env.account, MissingIntervalPolicy::Strict)));
+    require(!prepared.plan && !prepared.rejected.empty() &&
+                prepared.rejected[0].cause.code == FailureCode::UnsupportedContract,
+            "interval-only lag reached runtime on point source");
 }
+} // namespace
+int main() {
+    const Case cases[]{{"checked Trade numerical pipeline at every transport split",
+                        complete_point_pipeline_all_splits},
+                       {"point reuse, pinning and checked-reader failure gates",
+                        point_reuse_pinning_and_checked_failure},
+                       {"explicit point timing capability", timing_capability_admission},
+                       {"interval-only operation rejected before execution",
+                        interval_only_rejected_before_execution}};
+    return lexongine::test::run(cases);
 }
-int main(){const Case cases[]{{"checked Trade numerical pipeline at every transport split",complete_point_pipeline_all_splits},{"point reuse, pinning and checked-reader failure gates",point_reuse_pinning_and_checked_failure},{"explicit point timing capability",timing_capability_admission},{"interval-only operation rejected before execution",interval_only_rejected_before_execution}};return lexongine::test::run(cases);}

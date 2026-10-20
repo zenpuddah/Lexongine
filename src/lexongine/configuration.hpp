@@ -10,12 +10,14 @@ struct ParseLimits {
 };
 struct CompositionLimits {
     std::uint64_t xml_bytes, xml_depth, xml_elements, string_bytes;
-    std::uint64_t nodes, edges, requests, source_updates, managed_buffer_bytes, trace_events, trace_message_bytes;
+    std::uint64_t nodes, edges, requests, source_updates, managed_buffer_bytes, trace_events,
+        trace_message_bytes;
 };
 struct RetentionLogConfiguration {
     std::string path, format, open, flush, failure, overflow;
     std::uint64_t max_bytes, max_events;
-    friend bool operator==(const RetentionLogConfiguration&, const RetentionLogConfiguration&) = default;
+    friend bool operator==(const RetentionLogConfiguration &,
+                           const RetentionLogConfiguration &) = default;
 };
 struct RunConfiguration {
     std::string id, clock;
@@ -24,16 +26,25 @@ struct RunConfiguration {
     std::uint64_t retention_warning_steps;
     RetentionLogConfiguration retention_log;
 };
-struct PluginDeclaration { std::string path, build_contract_id; };
+struct PluginDeclaration {
+    std::string path, build_contract_id;
+};
 struct DisabledCache {};
 struct LocalCacheConfiguration {
-    std::string mode, backend, directory, matching, trust, integrity, writer, corruption, capacity, cleanup;
+    std::string mode, backend, directory, matching, trust, integrity, writer, corruption, capacity,
+        cleanup;
     std::uint64_t max_entries, max_store_bytes, max_entry_bytes, max_decoded_bytes;
-    friend bool operator==(const LocalCacheConfiguration&, const LocalCacheConfiguration&) = default;
+    friend bool operator==(const LocalCacheConfiguration &,
+                           const LocalCacheConfiguration &) = default;
 };
 using CacheConfiguration = std::variant<DisabledCache, LocalCacheConfiguration>;
-struct ConfigurationOverride { std::string target, value; };
-struct ParameterOverride { std::string producer, parameter, value; std::uint64_t argument; };
+struct ConfigurationOverride {
+    std::string target, value;
+};
+struct ParameterOverride {
+    std::string producer, parameter, value;
+    std::uint64_t argument;
+};
 struct CompositionOverrides {
     std::vector<ParameterOverride> parameters;
     std::vector<RequestId> observations;
@@ -73,11 +84,15 @@ struct CompositionDeclaration {
     std::vector<ConfigurationOverride> overrides;
 };
 class ParsedComposition {
-public:
-    [[nodiscard]] const CompositionDeclaration& declaration() const noexcept { return *declaration_; }
-private:
+  public:
+    [[nodiscard]] const CompositionDeclaration &declaration() const noexcept {
+        return *declaration_;
+    }
+
+  private:
     friend class FrontendAccess;
-    explicit ParsedComposition(std::shared_ptr<const CompositionDeclaration> value) : declaration_(std::move(value)) {}
+    explicit ParsedComposition(std::shared_ptr<const CompositionDeclaration> value)
+        : declaration_(std::move(value)) {}
     std::shared_ptr<const CompositionDeclaration> declaration_;
 };
 struct ResolvedParameters {
@@ -85,16 +100,24 @@ struct ResolvedParameters {
     CanonicalParams parameters;
 };
 class Composition {
-public:
-    [[nodiscard]] const CompositionDeclaration& declaration() const noexcept { return *declaration_; }
-    [[nodiscard]] const auto& source_parameters() const noexcept { return sources_; }
-    [[nodiscard]] const auto& node_parameters() const noexcept { return nodes_; }
-private:
+  public:
+    [[nodiscard]] const CompositionDeclaration &declaration() const noexcept {
+        return *declaration_;
+    }
+    [[nodiscard]] const auto &source_parameters() const noexcept {
+        return sources_;
+    }
+    [[nodiscard]] const auto &node_parameters() const noexcept {
+        return nodes_;
+    }
+
+  private:
     friend class FrontendAccess;
     friend class PreparationAccess;
-    Composition(Reservation charge, std::shared_ptr<const CompositionDeclaration> declaration, std::vector<ResolvedParameters> sources,
-                std::vector<ResolvedParameters> nodes)
-        : charge_(std::move(charge)), declaration_(std::move(declaration)), sources_(std::move(sources)), nodes_(std::move(nodes)) {}
+    Composition(Reservation charge, std::shared_ptr<const CompositionDeclaration> declaration,
+                std::vector<ResolvedParameters> sources, std::vector<ResolvedParameters> nodes)
+        : charge_(std::move(charge)), declaration_(std::move(declaration)),
+          sources_(std::move(sources)), nodes_(std::move(nodes)) {}
     Reservation charge_;
     std::shared_ptr<const CompositionDeclaration> declaration_;
     std::vector<ResolvedParameters> sources_, nodes_;
@@ -102,8 +125,9 @@ private:
 
 // These declarations describe intent. Preparation lowers explicit initialization
 // directives to NodeSpec/InitializationSpec after source/history resolution.
-Result<ParsedComposition> parse_xml(std::string_view, const ParseLimits&) noexcept;
-Result<Composition> resolve_composition(const ParsedComposition&, const Registry&) noexcept;
-Result<ParsedComposition> apply_overrides(const ParsedComposition&, const CompositionOverrides&) noexcept;
+Result<ParsedComposition> parse_xml(std::string_view, const ParseLimits &) noexcept;
+Result<Composition> resolve_composition(const ParsedComposition &, const Registry &) noexcept;
+Result<ParsedComposition> apply_overrides(const ParsedComposition &,
+                                          const CompositionOverrides &) noexcept;
 
 } // namespace lexongine

@@ -4,6 +4,6 @@
 #include <ostream>
 namespace lexongine::cli {
 // The optional fault callback is a test/host injection seam, never a CLI flag.
-int dispatch(std::span<const std::string_view>,std::string_view source_build,std::ostream&,std::ostream&,
-             std::function<Result<void>(StoreFaultPoint)> fault={}) noexcept;
-}
+int dispatch(std::span<const std::string_view>, std::string_view source_build, std::ostream &,
+             std::ostream &, std::function<Result<void>(StoreFaultPoint)> fault = {}) noexcept;
+} // namespace lexongine::cli

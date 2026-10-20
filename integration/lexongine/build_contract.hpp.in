@@ -3,4 +3,4 @@
 namespace lexongine {
 inline constexpr std::string_view build_contract_id = "@LEXONGINE_BUILD_CONTRACT_ID@";
 inline constexpr std::string_view sdk_header_digest = "@LEXONGINE_SDK_HEADER_DIGEST@";
-}
+} // namespace lexongine

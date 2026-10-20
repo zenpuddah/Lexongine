@@ -6,23 +6,32 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(LEXONGINE_SANITIZERS "Instrument project host, tests and plugins" OFF)
 if(NOT DEFINED LEXONGINE_QAEDALUS_BRIDGE)
-  message(FATAL_ERROR "Set LEXONGINE_QAEDALUS_BRIDGE explicitly to ON or OFF")
+    message(FATAL_ERROR "Set LEXONGINE_QAEDALUS_BRIDGE explicitly to ON or OFF")
 endif()
 
-add_library(lexongine_core SHARED ../../src/lexongine/runtime.cpp ../../src/lexongine/graph.cpp ../../src/lexongine/source.cpp ../../src/lexongine/preflight_rules.cpp
-  ../../src/lexongine/plan.cpp ../../src/lexongine/execution.cpp ../../src/lexongine/reuse.cpp ../../src/lexongine/result_store.cpp)
+add_library(
+    lexongine_core SHARED
+    ../../src/lexongine/runtime.cpp
+    ../../src/lexongine/graph.cpp
+    ../../src/lexongine/source.cpp
+    ../../src/lexongine/preflight_rules.cpp
+    ../../src/lexongine/plan.cpp
+    ../../src/lexongine/execution.cpp
+    ../../src/lexongine/reuse.cpp
+    ../../src/lexongine/result_store.cpp)
 target_include_directories(lexongine_core PUBLIC "${CMAKE_CURRENT_LIST_DIR}/../../src")
 target_compile_options(lexongine_core PUBLIC -Wall -Wextra -Wpedantic -Werror -fno-fast-math)
 if(LEXONGINE_SANITIZERS)
-  target_compile_options(lexongine_core PUBLIC -fsanitize=address,undefined -fno-omit-frame-pointer)
-  target_link_options(lexongine_core PUBLIC -fsanitize=address,undefined)
+    target_compile_options(lexongine_core PUBLIC -fsanitize=address,undefined
+                                                 -fno-omit-frame-pointer)
+    target_link_options(lexongine_core PUBLIC -fsanitize=address,undefined)
 endif()
 
 enable_testing()
 function(lexongine_test name source)
-  add_executable(${name} ${source})
-  target_link_libraries(${name} PRIVATE lexongine_core)
-  add_test(NAME ${name} COMMAND ${name})
+    add_executable(${name} ${source})
+    target_link_libraries(${name} PRIVATE lexongine_core)
+    add_test(NAME ${name} COMMAND ${name})
 endfunction()
 lexongine_test(lexongine_contract_tests ../../tests/lexongine_contract_tests.cpp)
 lexongine_test(lexongine_lifetime_tests ../../tests/lexongine_lifetime_tests.cpp)
@@ -46,255 +55,383 @@ add_library(lexongine_file_evidence STATIC file_evidence.cpp)
 target_link_libraries(lexongine_file_evidence PUBLIC lexongine_core)
 add_executable(lexongine_evidence_tests evidence_tests.cpp)
 target_link_libraries(lexongine_evidence_tests PRIVATE lexongine_file_evidence)
-add_test(NAME lexongine_evidence_tests COMMAND lexongine_evidence_tests "${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME lexongine_evidence_tests COMMAND lexongine_evidence_tests
+                                               "${CMAKE_CURRENT_BINARY_DIR}")
 add_executable(lexongine_arithmetic_probe arithmetic_probe.cpp)
 target_link_libraries(lexongine_arithmetic_probe PRIVATE lexongine_core)
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  add_test(NAME lexongine_arithmetic_oracle COMMAND "${Python3_EXECUTABLE}"
-    "${CMAKE_CURRENT_LIST_DIR}/verify_arithmetic.py" "$<TARGET_FILE:lexongine_arithmetic_probe>")
+    add_test(NAME lexongine_arithmetic_oracle
+             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/verify_arithmetic.py"
+                     "$<TARGET_FILE:lexongine_arithmetic_probe>")
 else()
-  message(STATUS "Independent arithmetic oracle: Blocked/Unverified (Python interpreter unavailable)")
+    message(
+        STATUS "Independent arithmetic oracle: Blocked/Unverified (Python interpreter unavailable)")
 endif()
 
 set(LEXONGINE_XML_DEFAULT OFF)
 if(DEFINED LEXONGINE_TINYXML2_SOURCE_DIR OR DEFINED tinyxml2_DIR)
-  set(LEXONGINE_XML_DEFAULT ON)
+    set(LEXONGINE_XML_DEFAULT ON)
 endif()
 option(LEXONGINE_XML_FRONTEND "Build the accepted strict XML integration" ${LEXONGINE_XML_DEFAULT})
 if(LEXONGINE_XML_FRONTEND)
-  if(DEFINED LEXONGINE_TINYXML2_SOURCE_DIR)
-    set(tinyxml2_BUILD_TESTING OFF CACHE BOOL "No vendor test targets in the product suite")
-    add_subdirectory("${LEXONGINE_TINYXML2_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/tinyxml2")
-    get_target_property(LEXONGINE_TINYXML2_VERSION tinyxml2 VERSION)
-    if(NOT LEXONGINE_TINYXML2_VERSION STREQUAL "11.0.0")
-      message(FATAL_ERROR "Explicit TinyXML2 source must be version 11.0.0")
+    if(DEFINED LEXONGINE_TINYXML2_SOURCE_DIR)
+        set(tinyxml2_BUILD_TESTING
+            OFF
+            CACHE BOOL "No vendor test targets in the product suite")
+        add_subdirectory("${LEXONGINE_TINYXML2_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/tinyxml2")
+        get_target_property(LEXONGINE_TINYXML2_VERSION tinyxml2 VERSION)
+        if(NOT LEXONGINE_TINYXML2_VERSION STREQUAL "11.0.0")
+            message(FATAL_ERROR "Explicit TinyXML2 source must be version 11.0.0")
+        endif()
+    elseif(DEFINED tinyxml2_DIR)
+        find_package(tinyxml2 11.0.0 EXACT CONFIG REQUIRED)
+    else()
+        message(FATAL_ERROR "Supply LEXONGINE_TINYXML2_SOURCE_DIR or tinyxml2_DIR explicitly")
     endif()
-  elseif(DEFINED tinyxml2_DIR)
-    find_package(tinyxml2 11.0.0 EXACT CONFIG REQUIRED)
-  else()
-    message(FATAL_ERROR "Supply LEXONGINE_TINYXML2_SOURCE_DIR or tinyxml2_DIR explicitly")
-  endif()
-  add_library(lexongine_frontend STATIC xml_frontend.cpp)
-  target_link_libraries(lexongine_frontend PUBLIC lexongine_core PRIVATE tinyxml2::tinyxml2)
-  add_library(lexongine_price_artifact STATIC price_artifact.cpp)
-  target_link_libraries(lexongine_price_artifact PUBLIC lexongine_quant_components PRIVATE tinyxml2::tinyxml2)
-  lexongine_test(lexongine_price_artifact_tests price_artifact_tests.cpp)
-  target_link_libraries(lexongine_price_artifact_tests PRIVATE lexongine_price_artifact)
-  add_library(lexongine_metadata_xml STATIC metadata_xml.cpp)
-  target_link_libraries(lexongine_metadata_xml PUBLIC lexongine_core tinyxml2::tinyxml2)
-  lexongine_test(lexongine_metadata_xml_tests metadata_xml_tests.cpp)
-  target_link_libraries(lexongine_metadata_xml_tests PRIVATE lexongine_metadata_xml)
-  add_library(lexongine_cli_options STATIC cli_options.cpp)
-  target_link_libraries(lexongine_cli_options PUBLIC lexongine_frontend)
-  add_executable(lexongine_cli_options_tests cli_options_tests.cpp)
-  target_link_libraries(lexongine_cli_options_tests PRIVATE lexongine_cli_options lexongine_fixture_source)
-  add_test(NAME lexongine_cli_options_tests COMMAND lexongine_cli_options_tests
-    "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml")
-  if(APPLE)
-    add_library(lexongine_persistence STATIC native_files.cpp artifact_metadata.cpp plan_projection.cpp snapshot_evidence.cpp file_result_store.cpp)
-    target_link_libraries(lexongine_persistence PUBLIC lexongine_metadata_xml lexongine_price_artifact)
-    add_executable(lexongine_persistence_tests persistence_tests.cpp)
-    target_link_libraries(lexongine_persistence_tests PRIVATE lexongine_persistence lexongine_frontend lexongine_fixture_source lexongine_file_evidence)
-    add_test(NAME lexongine_persistence_tests COMMAND lexongine_persistence_tests
-      "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml" "${CMAKE_CURRENT_BINARY_DIR}")
-    add_library(lexongine_inspection STATIC xml_report.cpp)
-    target_link_libraries(lexongine_inspection PUBLIC lexongine_persistence)
-    add_library(lexongine_cli STATIC cli.cpp)
-    target_link_libraries(lexongine_cli PUBLIC lexongine_inspection lexongine_cli_options lexongine_fixture_source lexongine_file_evidence lexongine_plugin_loader)
-    add_executable(lexongine cli_main.cpp)
-    target_link_libraries(lexongine PRIVATE lexongine_cli)
-    add_executable(lexongine_inspection_tests inspection_tests.cpp)
-    target_link_libraries(lexongine_inspection_tests PRIVATE lexongine_cli)
-    add_test(NAME lexongine_inspection_tests COMMAND lexongine_inspection_tests
-      "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml" "${CMAKE_CURRENT_BINARY_DIR}")
-    add_library(lexongine_backtest_host_probe STATIC backtest_host_probe.cpp)
-    target_link_libraries(lexongine_backtest_host_probe PUBLIC lexongine_persistence)
-    add_executable(lexongine_hosted_execution_tests hosted_execution_tests.cpp)
-    target_link_libraries(lexongine_hosted_execution_tests PRIVATE lexongine_backtest_host_probe lexongine_frontend lexongine_file_evidence)
-    add_test(NAME lexongine_hosted_execution_tests COMMAND lexongine_hosted_execution_tests "${CMAKE_CURRENT_BINARY_DIR}")
-    add_executable(lexongine_acceptance_probe acceptance_probe.cpp)
-    target_link_libraries(lexongine_acceptance_probe PRIVATE lexongine_inspection lexongine_frontend lexongine_file_evidence)
-    if(Python3_Interpreter_FOUND)
-      add_test(NAME lexongine_cli_tests COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cli_tests.py"
-        "$<TARGET_FILE:lexongine>" "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml" "${CMAKE_CURRENT_BINARY_DIR}")
-      add_test(NAME lexongine_exported_run_oracle COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/verify_acceptance.py"
-        "$<TARGET_FILE:lexongine_acceptance_probe>" "${CMAKE_CURRENT_BINARY_DIR}")
+    add_library(lexongine_frontend STATIC xml_frontend.cpp)
+    target_link_libraries(
+        lexongine_frontend
+        PUBLIC lexongine_core
+        PRIVATE tinyxml2::tinyxml2)
+    add_library(lexongine_price_artifact STATIC price_artifact.cpp)
+    target_link_libraries(
+        lexongine_price_artifact
+        PUBLIC lexongine_quant_components
+        PRIVATE tinyxml2::tinyxml2)
+    lexongine_test(lexongine_price_artifact_tests price_artifact_tests.cpp)
+    target_link_libraries(lexongine_price_artifact_tests PRIVATE lexongine_price_artifact)
+    add_library(lexongine_metadata_xml STATIC metadata_xml.cpp)
+    target_link_libraries(lexongine_metadata_xml PUBLIC lexongine_core tinyxml2::tinyxml2)
+    lexongine_test(lexongine_metadata_xml_tests metadata_xml_tests.cpp)
+    target_link_libraries(lexongine_metadata_xml_tests PRIVATE lexongine_metadata_xml)
+    add_library(lexongine_cli_options STATIC cli_options.cpp)
+    target_link_libraries(lexongine_cli_options PUBLIC lexongine_frontend)
+    add_executable(lexongine_cli_options_tests cli_options_tests.cpp)
+    target_link_libraries(lexongine_cli_options_tests PRIVATE lexongine_cli_options
+                                                              lexongine_fixture_source)
+    add_test(
+        NAME lexongine_cli_options_tests
+        COMMAND lexongine_cli_options_tests
+                "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml")
+    if(APPLE)
+        add_library(
+            lexongine_persistence STATIC native_files.cpp artifact_metadata.cpp plan_projection.cpp
+                                         snapshot_evidence.cpp file_result_store.cpp)
+        target_link_libraries(lexongine_persistence PUBLIC lexongine_metadata_xml
+                                                           lexongine_price_artifact)
+        add_executable(lexongine_persistence_tests persistence_tests.cpp)
+        target_link_libraries(
+            lexongine_persistence_tests PRIVATE lexongine_persistence lexongine_frontend
+                                                lexongine_fixture_source lexongine_file_evidence)
+        add_test(
+            NAME lexongine_persistence_tests
+            COMMAND
+                lexongine_persistence_tests
+                "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml"
+                "${CMAKE_CURRENT_BINARY_DIR}")
+        add_library(lexongine_inspection STATIC xml_report.cpp)
+        target_link_libraries(lexongine_inspection PUBLIC lexongine_persistence)
+        add_library(lexongine_cli STATIC cli.cpp)
+        target_link_libraries(
+            lexongine_cli
+            PUBLIC lexongine_inspection lexongine_cli_options lexongine_fixture_source
+                   lexongine_file_evidence lexongine_plugin_loader)
+        add_executable(lexongine cli_main.cpp)
+        target_link_libraries(lexongine PRIVATE lexongine_cli)
+        add_executable(lexongine_inspection_tests inspection_tests.cpp)
+        target_link_libraries(lexongine_inspection_tests PRIVATE lexongine_cli)
+        add_test(
+            NAME lexongine_inspection_tests
+            COMMAND
+                lexongine_inspection_tests
+                "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml"
+                "${CMAKE_CURRENT_BINARY_DIR}")
+        add_library(lexongine_backtest_host_probe STATIC backtest_host_probe.cpp)
+        target_link_libraries(lexongine_backtest_host_probe PUBLIC lexongine_persistence)
+        add_executable(lexongine_hosted_execution_tests hosted_execution_tests.cpp)
+        target_link_libraries(
+            lexongine_hosted_execution_tests PRIVATE lexongine_backtest_host_probe
+                                                     lexongine_frontend lexongine_file_evidence)
+        add_test(NAME lexongine_hosted_execution_tests COMMAND lexongine_hosted_execution_tests
+                                                               "${CMAKE_CURRENT_BINARY_DIR}")
+        add_executable(lexongine_acceptance_probe acceptance_probe.cpp)
+        target_link_libraries(
+            lexongine_acceptance_probe PRIVATE lexongine_inspection lexongine_frontend
+                                               lexongine_file_evidence)
+        if(Python3_Interpreter_FOUND)
+            add_test(
+                NAME lexongine_cli_tests
+                COMMAND
+                    "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/cli_tests.py"
+                    "$<TARGET_FILE:lexongine>"
+                    "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml"
+                    "${CMAKE_CURRENT_BINARY_DIR}")
+            add_test(
+                NAME lexongine_exported_run_oracle
+                COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_LIST_DIR}/verify_acceptance.py"
+                        "$<TARGET_FILE:lexongine_acceptance_probe>" "${CMAKE_CURRENT_BINARY_DIR}")
+        endif()
     endif()
-  endif()
-  if(LEXONGINE_SANITIZERS AND DEFINED LEXONGINE_TINYXML2_SOURCE_DIR)
-    target_compile_options(tinyxml2 PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
-    target_link_options(tinyxml2 PRIVATE -fsanitize=address,undefined)
-  endif()
-  add_executable(lexongine_frontend_tests frontend_tests.cpp)
-  target_link_libraries(lexongine_frontend_tests PRIVATE lexongine_frontend)
-  add_test(NAME lexongine_frontend_tests COMMAND lexongine_frontend_tests
-    "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml")
-  add_executable(lexongine_execution_tests execution_tests.cpp)
-  target_link_libraries(lexongine_execution_tests PRIVATE lexongine_frontend lexongine_fixture_source lexongine_file_evidence lexongine_price_artifact)
-  add_test(NAME lexongine_execution_tests COMMAND lexongine_execution_tests
-    "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml" "${CMAKE_CURRENT_BINARY_DIR}")
+    if(LEXONGINE_SANITIZERS AND DEFINED LEXONGINE_TINYXML2_SOURCE_DIR)
+        target_compile_options(tinyxml2 PRIVATE -fsanitize=address,undefined
+                                                -fno-omit-frame-pointer)
+        target_link_options(tinyxml2 PRIVATE -fsanitize=address,undefined)
+    endif()
+    add_executable(lexongine_frontend_tests frontend_tests.cpp)
+    target_link_libraries(lexongine_frontend_tests PRIVATE lexongine_frontend)
+    add_test(
+        NAME lexongine_frontend_tests
+        COMMAND lexongine_frontend_tests
+                "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml")
+    add_executable(lexongine_execution_tests execution_tests.cpp)
+    target_link_libraries(
+        lexongine_execution_tests PRIVATE lexongine_frontend lexongine_fixture_source
+                                          lexongine_file_evidence lexongine_price_artifact)
+    add_test(
+        NAME lexongine_execution_tests
+        COMMAND
+            lexongine_execution_tests
+            "${CMAKE_CURRENT_LIST_DIR}/../../docs/lexongine/examples/first-computation.xml"
+            "${CMAKE_CURRENT_BINARY_DIR}")
 else()
-  message(STATUS "Strict XML frontend: Blocked/Unverified (explicitly disabled or no dependency path supplied)")
+    message(
+        STATUS
+            "Strict XML frontend: Blocked/Unverified (explicitly disabled or no dependency path supplied)"
+    )
 endif()
 
 if(LEXONGINE_QAEDALUS_BRIDGE)
-  if(NOT EXISTS "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src/quant/storage/backend.hpp" OR
-     NOT EXISTS "${LEXONGINE_QAEDALUS_SOURCE_DIR}/integration/storage/integrity_fixture.hpp")
-    message(FATAL_ERROR "Bridge ON requires LEXONGINE_QAEDALUS_SOURCE_DIR pointing to a compatible Qaedalus checkout")
-  endif()
-  foreach(TYPE_HEADER observations.hpp reference.hpp validation.hpp value_types.hpp)
-    file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/data/${TYPE_HEADER}" LOCAL_TYPE_DIGEST)
-    file(SHA256 "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src/quant/data/${TYPE_HEADER}" EXTERNAL_TYPE_DIGEST)
-    if(NOT "${LOCAL_TYPE_DIGEST}" STREQUAL "${EXTERNAL_TYPE_DIGEST}")
-      message(FATAL_ERROR "External Qaedalus canonical types differ from the bundled v1 types: ${TYPE_HEADER}")
+    if(NOT EXISTS "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src/quant/storage/backend.hpp"
+       OR NOT EXISTS "${LEXONGINE_QAEDALUS_SOURCE_DIR}/integration/storage/integrity_fixture.hpp")
+        message(
+            FATAL_ERROR
+                "Bridge ON requires LEXONGINE_QAEDALUS_SOURCE_DIR pointing to a compatible Qaedalus checkout"
+        )
     endif()
-  endforeach()
-  find_package(Arrow REQUIRED CONFIG)
-  if(TARGET Arrow::arrow_shared)
-    set(LEXONGINE_ARROW_TARGET Arrow::arrow_shared)
-  elseif(TARGET Arrow::arrow_static)
-    set(LEXONGINE_ARROW_TARGET Arrow::arrow_static)
-  else()
-    message(FATAL_ERROR "Unsupported Arrow package targets")
-  endif()
-  lexongine_test(lexongine_source_host_contract_probe source_host_contract_probe.cpp)
-  target_include_directories(lexongine_source_host_contract_probe PRIVATE "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src")
-  target_link_libraries(lexongine_source_host_contract_probe PRIVATE ${LEXONGINE_ARROW_TARGET})
-  add_library(lexongine_qaedalus_source STATIC qaedalus_replay_source.cpp)
-  target_include_directories(lexongine_qaedalus_source PUBLIC "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src")
-  target_link_libraries(lexongine_qaedalus_source PUBLIC lexongine_core ${LEXONGINE_ARROW_TARGET})
-  add_executable(lexongine_replay_source_tests replay_source_tests.cpp)
-  target_link_libraries(lexongine_replay_source_tests PRIVATE lexongine_qaedalus_source)
-  add_test(NAME lexongine_replay_source_tests COMMAND lexongine_replay_source_tests)
-  if(LEXONGINE_XML_FRONTEND)
-    add_executable(lexongine_integrated_replay_tests integrated_replay_tests.cpp)
-    target_link_libraries(lexongine_integrated_replay_tests PRIVATE lexongine_qaedalus_source lexongine_frontend lexongine_price_artifact lexongine_quant_components)
-    add_test(NAME lexongine_integrated_replay_tests COMMAND lexongine_integrated_replay_tests)
-  endif()
-  find_package(Parquet REQUIRED CONFIG)
-  if(TARGET Parquet::parquet_shared)
-    set(LEXONGINE_PARQUET_TARGET Parquet::parquet_shared)
-  elseif(TARGET Parquet::parquet_static)
-    set(LEXONGINE_PARQUET_TARGET Parquet::parquet_static)
-  else()
-    message(FATAL_ERROR "Unsupported Parquet package targets")
-  endif()
-  add_executable(lexongine_replay_storage_tests replay_storage_tests.cpp)
-  target_include_directories(lexongine_replay_storage_tests PRIVATE "${LEXONGINE_QAEDALUS_SOURCE_DIR}/integration/storage")
-  target_link_libraries(lexongine_replay_storage_tests PRIVATE lexongine_qaedalus_source ${LEXONGINE_PARQUET_TARGET})
-  if(LEXONGINE_XML_FRONTEND)
-    target_compile_definitions(lexongine_replay_storage_tests PRIVATE LEXONGINE_EXECUTION_INTEGRATION=1)
-    target_link_libraries(lexongine_replay_storage_tests PRIVATE lexongine_frontend lexongine_price_artifact lexongine_quant_components)
-  endif()
-  add_test(NAME lexongine_replay_storage_tests COMMAND lexongine_replay_storage_tests "${CMAKE_CURRENT_BINARY_DIR}")
-  message(STATUS "Checked Qaedalus reader integration enabled using explicit external sources")
+    foreach(TYPE_HEADER observations.hpp reference.hpp validation.hpp value_types.hpp)
+        file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/data/${TYPE_HEADER}"
+             LOCAL_TYPE_DIGEST)
+        file(SHA256 "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src/quant/data/${TYPE_HEADER}"
+             EXTERNAL_TYPE_DIGEST)
+        if(NOT "${LOCAL_TYPE_DIGEST}" STREQUAL "${EXTERNAL_TYPE_DIGEST}")
+            message(
+                FATAL_ERROR
+                    "External Qaedalus canonical types differ from the bundled v1 types: ${TYPE_HEADER}"
+            )
+        endif()
+    endforeach()
+    find_package(Arrow REQUIRED CONFIG)
+    if(TARGET Arrow::arrow_shared)
+        set(LEXONGINE_ARROW_TARGET Arrow::arrow_shared)
+    elseif(TARGET Arrow::arrow_static)
+        set(LEXONGINE_ARROW_TARGET Arrow::arrow_static)
+    else()
+        message(FATAL_ERROR "Unsupported Arrow package targets")
+    endif()
+    lexongine_test(lexongine_source_host_contract_probe source_host_contract_probe.cpp)
+    target_include_directories(lexongine_source_host_contract_probe
+                               PRIVATE "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src")
+    target_link_libraries(lexongine_source_host_contract_probe PRIVATE ${LEXONGINE_ARROW_TARGET})
+    add_library(lexongine_qaedalus_source STATIC qaedalus_replay_source.cpp)
+    target_include_directories(lexongine_qaedalus_source
+                               PUBLIC "${LEXONGINE_QAEDALUS_SOURCE_DIR}/src")
+    target_link_libraries(lexongine_qaedalus_source PUBLIC lexongine_core ${LEXONGINE_ARROW_TARGET})
+    add_executable(lexongine_replay_source_tests replay_source_tests.cpp)
+    target_link_libraries(lexongine_replay_source_tests PRIVATE lexongine_qaedalus_source)
+    add_test(NAME lexongine_replay_source_tests COMMAND lexongine_replay_source_tests)
+    if(LEXONGINE_XML_FRONTEND)
+        add_executable(lexongine_integrated_replay_tests integrated_replay_tests.cpp)
+        target_link_libraries(
+            lexongine_integrated_replay_tests
+            PRIVATE lexongine_qaedalus_source lexongine_frontend lexongine_price_artifact
+                    lexongine_quant_components)
+        add_test(NAME lexongine_integrated_replay_tests COMMAND lexongine_integrated_replay_tests)
+    endif()
+    find_package(Parquet REQUIRED CONFIG)
+    if(TARGET Parquet::parquet_shared)
+        set(LEXONGINE_PARQUET_TARGET Parquet::parquet_shared)
+    elseif(TARGET Parquet::parquet_static)
+        set(LEXONGINE_PARQUET_TARGET Parquet::parquet_static)
+    else()
+        message(FATAL_ERROR "Unsupported Parquet package targets")
+    endif()
+    add_executable(lexongine_replay_storage_tests replay_storage_tests.cpp)
+    target_include_directories(lexongine_replay_storage_tests
+                               PRIVATE "${LEXONGINE_QAEDALUS_SOURCE_DIR}/integration/storage")
+    target_link_libraries(lexongine_replay_storage_tests PRIVATE lexongine_qaedalus_source
+                                                                 ${LEXONGINE_PARQUET_TARGET})
+    if(LEXONGINE_XML_FRONTEND)
+        target_compile_definitions(lexongine_replay_storage_tests
+                                   PRIVATE LEXONGINE_EXECUTION_INTEGRATION=1)
+        target_link_libraries(
+            lexongine_replay_storage_tests PRIVATE lexongine_frontend lexongine_price_artifact
+                                                   lexongine_quant_components)
+    endif()
+    add_test(NAME lexongine_replay_storage_tests COMMAND lexongine_replay_storage_tests
+                                                         "${CMAKE_CURRENT_BINARY_DIR}")
+    message(STATUS "Checked Qaedalus reader integration enabled using explicit external sources")
 else()
-  message(STATUS "External Qaedalus integration disabled; standalone engine, reference components and CLI remain enabled")
+    message(
+        STATUS
+            "External Qaedalus integration disabled; standalone engine, reference components and CLI remain enabled"
+    )
 endif()
 
 if(APPLE)
-  string(TOUPPER "${CMAKE_BUILD_TYPE}" LEXONGINE_BUILD_TYPE_UPPER)
-  set(LEXONGINE_ACTIVE_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${LEXONGINE_BUILD_TYPE_UPPER}}")
-  separate_arguments(LEXONGINE_MACRO_FLAGS UNIX_COMMAND "${LEXONGINE_ACTIVE_FLAGS}")
-  execute_process(COMMAND xcrun --show-sdk-version OUTPUT_VARIABLE LEXONGINE_APPLE_SDK OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
-  execute_process(COMMAND "${CMAKE_CXX_COMPILER}" ${LEXONGINE_MACRO_FLAGS} -std=c++20 -frtti -fexceptions -dM -E -x c++ -include version /dev/null
-    OUTPUT_VARIABLE LEXONGINE_STDLIB_MACROS COMMAND_ERROR_IS_FATAL ANY)
-  string(REGEX MATCH "#define _LIBCPP_VERSION ([0-9]+)" LEXONGINE_LIBCPP_MATCH "${LEXONGINE_STDLIB_MACROS}")
-  if(NOT LEXONGINE_LIBCPP_MATCH)
-    message(FATAL_ERROR "The accepted native plugin pipeline requires libc++")
-  endif()
-  set(LEXONGINE_LIBCPP_VERSION "${CMAKE_MATCH_1}")
-  file(GLOB LEXONGINE_SDK_HEADERS CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/../../src/lexongine/*.hpp")
-  list(APPEND LEXONGINE_SDK_HEADERS "${CMAKE_CURRENT_LIST_DIR}/test_plugin_sdk.hpp")
-  get_target_property(LEXONGINE_CORE_SOURCE_NAMES lexongine_core SOURCES)
-  set(LEXONGINE_CORE_SOURCES "")
-  set(LEXONGINE_CORE_SOURCE_CONTENT "")
-  foreach(SOURCE IN LISTS LEXONGINE_CORE_SOURCE_NAMES)
-    get_filename_component(SOURCE_PATH "${SOURCE}" ABSOLUTE BASE_DIR "${CMAKE_CURRENT_LIST_DIR}")
-    list(APPEND LEXONGINE_CORE_SOURCES "${SOURCE_PATH}")
-    file(SHA256 "${SOURCE_PATH}" SOURCE_DIGEST)
-    string(APPEND LEXONGINE_CORE_SOURCE_CONTENT "${SOURCE}:${SOURCE_DIGEST}\n")
-  endforeach()
-  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${LEXONGINE_SDK_HEADERS}
-    "${CMAKE_CURRENT_LIST_DIR}/test_plugin.cpp" ${LEXONGINE_CORE_SOURCES})
-  set(LEXONGINE_HEADER_CONTENT "")
-  foreach(HEADER IN LISTS LEXONGINE_SDK_HEADERS)
-    file(SHA256 "${HEADER}" HEADER_DIGEST)
-    get_filename_component(HEADER_NAME "${HEADER}" NAME)
-    string(APPEND LEXONGINE_HEADER_CONTENT "${HEADER_NAME}:${HEADER_DIGEST}\n")
-  endforeach()
-  string(SHA256 LEXONGINE_SDK_HEADER_DIGEST "${LEXONGINE_HEADER_CONTENT}")
-  set(LEXONGINE_ABI_FACTS "sdk=lexongine-v1\nheaders=${LEXONGINE_SDK_HEADER_DIGEST}\ncompiler=${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}\nstdlib=libc++-${LEXONGINE_LIBCPP_VERSION}\narchitecture=${CMAKE_SYSTEM_PROCESSOR};${CMAKE_OSX_ARCHITECTURES}\napple_sdk=${LEXONGINE_APPLE_SDK}\nsysroot=${CMAKE_OSX_SYSROOT}\nstandard=c++20\nrtti=on\nexceptions=on\nvisibility=default\nsanitizers=${LEXONGINE_SANITIZERS}\nbuild_type=${CMAKE_BUILD_TYPE}\nflags=${CMAKE_CXX_FLAGS};${CMAKE_CXX_FLAGS_DEBUG};${CMAKE_CXX_FLAGS_RELEASE}\n")
-  string(APPEND LEXONGINE_ABI_FACTS "active_flags=${LEXONGINE_ACTIVE_FLAGS}\nfast_math=off\ndeployment_target=${CMAKE_OSX_DEPLOYMENT_TARGET}\n")
-  string(SHA256 LEXONGINE_ABI_DIGEST "${LEXONGINE_ABI_FACTS}")
-  set(LEXONGINE_BUILD_CONTRACT_ID "lexongine-sdk-v1:${LEXONGINE_ABI_DIGEST}")
-  configure_file(build_contract.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/generated/lexongine/build_contract.hpp" @ONLY)
-  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/sdk-build-facts.txt" "${LEXONGINE_ABI_FACTS}")
-  target_include_directories(lexongine_core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
-  target_compile_options(lexongine_core PUBLIC -frtti -fexceptions -fvisibility=default -fno-visibility-inlines-hidden)
-  add_library(lexongine_plugin_loader STATIC plugin_loader.cpp)
-  target_link_libraries(lexongine_plugin_loader PUBLIC lexongine_core PRIVATE ${CMAKE_DL_LIBS})
-  file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/test_plugin.cpp" LEXONGINE_TEST_PLUGIN_SOURCE)
-  set(LEXONGINE_PLUGIN_TARGETS "")
-  foreach(MODE RANGE 0 8)
-    set(MODULE_TARGET "lexongine_test_plugin_${MODE}")
-    add_library(${MODULE_TARGET} MODULE test_plugin.cpp)
-    target_link_libraries(${MODULE_TARGET} PRIVATE lexongine_core)
-    target_compile_definitions(${MODULE_TARGET} PRIVATE "LEXONGINE_TEST_PLUGIN_MODE=${MODE}")
-    string(SHA256 SOURCE_BUILD "${LEXONGINE_ABI_FACTS}\nsource=${LEXONGINE_TEST_PLUGIN_SOURCE}\ncore_sources=${LEXONGINE_CORE_SOURCE_CONTENT}\nmode=${MODE}\n")
-    add_custom_command(TARGET ${MODULE_TARGET} POST_BUILD COMMAND "${CMAKE_COMMAND}"
-      "-DMODULE=$<TARGET_FILE:${MODULE_TARGET}>" "-DABI=${LEXONGINE_BUILD_CONTRACT_ID}" "-DSOURCE_BUILD=${SOURCE_BUILD}"
-      -P "${CMAKE_CURRENT_LIST_DIR}/emit_plugin_manifest.cmake" VERBATIM)
-    list(APPEND LEXONGINE_PLUGIN_TARGETS ${MODULE_TARGET})
-  endforeach()
-  add_executable(lexongine_plugin_tests plugin_tests.cpp)
-  target_link_libraries(lexongine_plugin_tests PRIVATE lexongine_plugin_loader)
-  add_dependencies(lexongine_plugin_tests ${LEXONGINE_PLUGIN_TARGETS})
-  add_test(NAME lexongine_plugin_tests COMMAND lexongine_plugin_tests
-    "$<TARGET_FILE:lexongine_test_plugin_0>" "$<TARGET_FILE:lexongine_test_plugin_1>"
-    "$<TARGET_FILE:lexongine_test_plugin_2>" "$<TARGET_FILE:lexongine_test_plugin_3>"
-    "$<TARGET_FILE:lexongine_test_plugin_4>" "$<TARGET_FILE:lexongine_test_plugin_5>"
-    "$<TARGET_FILE:lexongine_test_plugin_6>" "$<TARGET_FILE:lexongine_test_plugin_7>"
-    "$<TARGET_FILE:lexongine_test_plugin_8>" "${CMAKE_CURRENT_BINARY_DIR}")
-  function(lexongine_bind_host_build TARGET)
-    file(GLOB BUILTIN_INPUTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/*.cpp" "${CMAKE_CURRENT_LIST_DIR}/*.hpp"
-      "${CMAKE_CURRENT_LIST_DIR}/*.in" "${CMAKE_CURRENT_LIST_DIR}/*.cmake"
-      "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.cpp" "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.hpp"
-      "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/data/*.hpp")
-    list(APPEND BUILTIN_INPUTS ${LEXONGINE_CORE_SOURCES} ${LEXONGINE_SDK_HEADERS}
-      "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt" "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/storage/file_integrity.hpp")
-    if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
-      list(APPEND BUILTIN_INPUTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" LEXONGINE_BUILD_TYPE_UPPER)
+    set(LEXONGINE_ACTIVE_FLAGS
+        "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${LEXONGINE_BUILD_TYPE_UPPER}}")
+    separate_arguments(LEXONGINE_MACRO_FLAGS UNIX_COMMAND "${LEXONGINE_ACTIVE_FLAGS}")
+    execute_process(
+        COMMAND xcrun --show-sdk-version
+        OUTPUT_VARIABLE LEXONGINE_APPLE_SDK
+        OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(
+        COMMAND "${CMAKE_CXX_COMPILER}" ${LEXONGINE_MACRO_FLAGS} -std=c++20 -frtti -fexceptions -dM
+                -E -x c++ -include version /dev/null OUTPUT_VARIABLE LEXONGINE_STDLIB_MACROS
+                                                                     COMMAND_ERROR_IS_FATAL ANY)
+    string(REGEX MATCH "#define _LIBCPP_VERSION ([0-9]+)" LEXONGINE_LIBCPP_MATCH
+                 "${LEXONGINE_STDLIB_MACROS}")
+    if(NOT LEXONGINE_LIBCPP_MATCH)
+        message(FATAL_ERROR "The accepted native plugin pipeline requires libc++")
     endif()
-    list(REMOVE_DUPLICATES BUILTIN_INPUTS)
-    list(SORT BUILTIN_INPUTS)
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${BUILTIN_INPUTS})
-    set(CONTENT "${LEXONGINE_ABI_FACTS}\nhost_target=${TARGET}\n")
-    foreach(INPUT IN LISTS BUILTIN_INPUTS)
-      file(SHA256 "${INPUT}" INPUT_DIGEST)
-      file(RELATIVE_PATH INPUT_NAME "${CMAKE_CURRENT_LIST_DIR}/../.." "${INPUT}")
-      string(APPEND CONTENT "${INPUT_NAME}:${INPUT_DIGEST}\n")
+    set(LEXONGINE_LIBCPP_VERSION "${CMAKE_MATCH_1}")
+    file(GLOB LEXONGINE_SDK_HEADERS CONFIGURE_DEPENDS
+         "${CMAKE_CURRENT_LIST_DIR}/../../src/lexongine/*.hpp")
+    list(APPEND LEXONGINE_SDK_HEADERS "${CMAKE_CURRENT_LIST_DIR}/test_plugin_sdk.hpp")
+    get_target_property(LEXONGINE_CORE_SOURCE_NAMES lexongine_core SOURCES)
+    set(LEXONGINE_CORE_SOURCES "")
+    set(LEXONGINE_CORE_SOURCE_CONTENT "")
+    foreach(SOURCE IN LISTS LEXONGINE_CORE_SOURCE_NAMES)
+        get_filename_component(SOURCE_PATH "${SOURCE}" ABSOLUTE BASE_DIR
+                               "${CMAKE_CURRENT_LIST_DIR}")
+        list(APPEND LEXONGINE_CORE_SOURCES "${SOURCE_PATH}")
+        file(SHA256 "${SOURCE_PATH}" SOURCE_DIGEST)
+        string(APPEND LEXONGINE_CORE_SOURCE_CONTENT "${SOURCE}:${SOURCE_DIGEST}\n")
     endforeach()
-    string(SHA256 HOST_SOURCE_BUILD "${CONTENT}")
-    target_compile_definitions(${TARGET} PRIVATE "LEXONGINE_HOST_SOURCE_BUILD=\"${HOST_SOURCE_BUILD}\"")
-    target_link_libraries(${TARGET} PRIVATE lexongine_plugin_loader)
-    add_custom_command(TARGET ${TARGET} POST_BUILD COMMAND "${CMAKE_COMMAND}"
-      "-DHOST=$<TARGET_FILE:${TARGET}>" "-DABI=${LEXONGINE_BUILD_CONTRACT_ID}" "-DSOURCE_BUILD=${HOST_SOURCE_BUILD}"
-      -P "${CMAKE_CURRENT_LIST_DIR}/emit_host_manifest.cmake" VERBATIM)
-  endfunction()
-  if(TARGET lexongine_execution_tests)
-    lexongine_bind_host_build(lexongine_execution_tests)
-  endif()
-  if(TARGET lexongine_persistence_tests)
-    lexongine_bind_host_build(lexongine_persistence_tests)
-  endif()
-  if(TARGET lexongine)
-    lexongine_bind_host_build(lexongine)
-    lexongine_bind_host_build(lexongine_inspection_tests)
-    lexongine_bind_host_build(lexongine_hosted_execution_tests)
-    lexongine_bind_host_build(lexongine_acceptance_probe)
-  endif()
+    set_property(
+        DIRECTORY
+        APPEND
+        PROPERTY CMAKE_CONFIGURE_DEPENDS ${LEXONGINE_SDK_HEADERS}
+                 "${CMAKE_CURRENT_LIST_DIR}/test_plugin.cpp" ${LEXONGINE_CORE_SOURCES})
+    set(LEXONGINE_HEADER_CONTENT "")
+    foreach(HEADER IN LISTS LEXONGINE_SDK_HEADERS)
+        file(SHA256 "${HEADER}" HEADER_DIGEST)
+        get_filename_component(HEADER_NAME "${HEADER}" NAME)
+        string(APPEND LEXONGINE_HEADER_CONTENT "${HEADER_NAME}:${HEADER_DIGEST}\n")
+    endforeach()
+    string(SHA256 LEXONGINE_SDK_HEADER_DIGEST "${LEXONGINE_HEADER_CONTENT}")
+    set(LEXONGINE_ABI_FACTS
+        "sdk=lexongine-v1\nheaders=${LEXONGINE_SDK_HEADER_DIGEST}\ncompiler=${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}\nstdlib=libc++-${LEXONGINE_LIBCPP_VERSION}\narchitecture=${CMAKE_SYSTEM_PROCESSOR};${CMAKE_OSX_ARCHITECTURES}\napple_sdk=${LEXONGINE_APPLE_SDK}\nsysroot=${CMAKE_OSX_SYSROOT}\nstandard=c++20\nrtti=on\nexceptions=on\nvisibility=default\nsanitizers=${LEXONGINE_SANITIZERS}\nbuild_type=${CMAKE_BUILD_TYPE}\nflags=${CMAKE_CXX_FLAGS};${CMAKE_CXX_FLAGS_DEBUG};${CMAKE_CXX_FLAGS_RELEASE}\n"
+    )
+    string(
+        APPEND
+        LEXONGINE_ABI_FACTS
+        "active_flags=${LEXONGINE_ACTIVE_FLAGS}\nfast_math=off\ndeployment_target=${CMAKE_OSX_DEPLOYMENT_TARGET}\n"
+    )
+    string(SHA256 LEXONGINE_ABI_DIGEST "${LEXONGINE_ABI_FACTS}")
+    set(LEXONGINE_BUILD_CONTRACT_ID "lexongine-sdk-v1:${LEXONGINE_ABI_DIGEST}")
+    configure_file(build_contract.hpp.in
+                   "${CMAKE_CURRENT_BINARY_DIR}/generated/lexongine/build_contract.hpp" @ONLY)
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/sdk-build-facts.txt" "${LEXONGINE_ABI_FACTS}")
+    target_include_directories(lexongine_core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_compile_options(lexongine_core PUBLIC -frtti -fexceptions -fvisibility=default
+                                                 -fno-visibility-inlines-hidden)
+    add_library(lexongine_plugin_loader STATIC plugin_loader.cpp)
+    target_link_libraries(
+        lexongine_plugin_loader
+        PUBLIC lexongine_core
+        PRIVATE ${CMAKE_DL_LIBS})
+    file(SHA256 "${CMAKE_CURRENT_LIST_DIR}/test_plugin.cpp" LEXONGINE_TEST_PLUGIN_SOURCE)
+    set(LEXONGINE_PLUGIN_TARGETS "")
+    foreach(MODE RANGE 0 8)
+        set(MODULE_TARGET "lexongine_test_plugin_${MODE}")
+        add_library(${MODULE_TARGET} MODULE test_plugin.cpp)
+        target_link_libraries(${MODULE_TARGET} PRIVATE lexongine_core)
+        target_compile_definitions(${MODULE_TARGET} PRIVATE "LEXONGINE_TEST_PLUGIN_MODE=${MODE}")
+        string(
+            SHA256
+                SOURCE_BUILD
+                "${LEXONGINE_ABI_FACTS}\nsource=${LEXONGINE_TEST_PLUGIN_SOURCE}\ncore_sources=${LEXONGINE_CORE_SOURCE_CONTENT}\nmode=${MODE}\n"
+        )
+        add_custom_command(
+            TARGET ${MODULE_TARGET}
+            POST_BUILD
+            COMMAND
+                "${CMAKE_COMMAND}" "-DMODULE=$<TARGET_FILE:${MODULE_TARGET}>"
+                "-DABI=${LEXONGINE_BUILD_CONTRACT_ID}" "-DSOURCE_BUILD=${SOURCE_BUILD}" -P
+                "${CMAKE_CURRENT_LIST_DIR}/emit_plugin_manifest.cmake"
+            VERBATIM)
+        list(APPEND LEXONGINE_PLUGIN_TARGETS ${MODULE_TARGET})
+    endforeach()
+    add_executable(lexongine_plugin_tests plugin_tests.cpp)
+    target_link_libraries(lexongine_plugin_tests PRIVATE lexongine_plugin_loader)
+    add_dependencies(lexongine_plugin_tests ${LEXONGINE_PLUGIN_TARGETS})
+    add_test(
+        NAME lexongine_plugin_tests
+        COMMAND
+            lexongine_plugin_tests "$<TARGET_FILE:lexongine_test_plugin_0>"
+            "$<TARGET_FILE:lexongine_test_plugin_1>" "$<TARGET_FILE:lexongine_test_plugin_2>"
+            "$<TARGET_FILE:lexongine_test_plugin_3>" "$<TARGET_FILE:lexongine_test_plugin_4>"
+            "$<TARGET_FILE:lexongine_test_plugin_5>" "$<TARGET_FILE:lexongine_test_plugin_6>"
+            "$<TARGET_FILE:lexongine_test_plugin_7>" "$<TARGET_FILE:lexongine_test_plugin_8>"
+            "${CMAKE_CURRENT_BINARY_DIR}")
+    function(lexongine_bind_host_build TARGET)
+        file(
+            GLOB
+            BUILTIN_INPUTS
+            CONFIGURE_DEPENDS
+            "${CMAKE_CURRENT_LIST_DIR}/*.cpp"
+            "${CMAKE_CURRENT_LIST_DIR}/*.hpp"
+            "${CMAKE_CURRENT_LIST_DIR}/*.in"
+            "${CMAKE_CURRENT_LIST_DIR}/*.cmake"
+            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.cpp"
+            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/lexongine/*.hpp"
+            "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/data/*.hpp")
+        list(APPEND BUILTIN_INPUTS ${LEXONGINE_CORE_SOURCES} ${LEXONGINE_SDK_HEADERS}
+             "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt"
+             "${CMAKE_CURRENT_LIST_DIR}/../../src/quant/storage/file_integrity.hpp")
+        if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
+            list(APPEND BUILTIN_INPUTS "${CMAKE_CURRENT_LIST_DIR}/../../CMakeLists.txt")
+        endif()
+        list(REMOVE_DUPLICATES BUILTIN_INPUTS)
+        list(SORT BUILTIN_INPUTS)
+        set_property(
+            DIRECTORY
+            APPEND
+            PROPERTY CMAKE_CONFIGURE_DEPENDS ${BUILTIN_INPUTS})
+        set(CONTENT "${LEXONGINE_ABI_FACTS}\nhost_target=${TARGET}\n")
+        foreach(INPUT IN LISTS BUILTIN_INPUTS)
+            file(SHA256 "${INPUT}" INPUT_DIGEST)
+            file(RELATIVE_PATH INPUT_NAME "${CMAKE_CURRENT_LIST_DIR}/../.." "${INPUT}")
+            string(APPEND CONTENT "${INPUT_NAME}:${INPUT_DIGEST}\n")
+        endforeach()
+        string(SHA256 HOST_SOURCE_BUILD "${CONTENT}")
+        target_compile_definitions(${TARGET}
+                                   PRIVATE "LEXONGINE_HOST_SOURCE_BUILD=\"${HOST_SOURCE_BUILD}\"")
+        target_link_libraries(${TARGET} PRIVATE lexongine_plugin_loader)
+        add_custom_command(
+            TARGET ${TARGET}
+            POST_BUILD
+            COMMAND
+                "${CMAKE_COMMAND}" "-DHOST=$<TARGET_FILE:${TARGET}>"
+                "-DABI=${LEXONGINE_BUILD_CONTRACT_ID}" "-DSOURCE_BUILD=${HOST_SOURCE_BUILD}" -P
+                "${CMAKE_CURRENT_LIST_DIR}/emit_host_manifest.cmake"
+            VERBATIM)
+    endfunction()
+    if(TARGET lexongine_execution_tests)
+        lexongine_bind_host_build(lexongine_execution_tests)
+    endif()
+    if(TARGET lexongine_persistence_tests)
+        lexongine_bind_host_build(lexongine_persistence_tests)
+    endif()
+    if(TARGET lexongine)
+        lexongine_bind_host_build(lexongine)
+        lexongine_bind_host_build(lexongine_inspection_tests)
+        lexongine_bind_host_build(lexongine_hosted_execution_tests)
+        lexongine_bind_host_build(lexongine_acceptance_probe)
+    endif()
 else()
-  message(STATUS "Native macOS plugin verification: Blocked/Unverified on this platform")
+    message(STATUS "Native macOS plugin verification: Blocked/Unverified on this platform")
 endif()

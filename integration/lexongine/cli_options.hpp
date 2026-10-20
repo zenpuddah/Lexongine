@@ -13,5 +13,6 @@ struct Options {
 };
 // Versioned tool bounds, separate from numerical/source policies.
 inline constexpr std::uint64_t max_arguments = 256, max_argument_bytes = 1024;
-[[nodiscard]] Result<Options> parse_options(std::span<const std::string_view>, std::shared_ptr<ResourceAccount>) noexcept;
-}
+[[nodiscard]] Result<Options> parse_options(std::span<const std::string_view>,
+                                            std::shared_ptr<ResourceAccount>) noexcept;
+} // namespace lexongine::cli

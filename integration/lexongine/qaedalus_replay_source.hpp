@@ -4,19 +4,21 @@
 #include "quant/storage/backend.hpp"
 
 namespace lexongine {
-template<> struct PublicationTraits<quant::data::Trade> {
+template <> struct PublicationTraits<quant::data::Trade> {
     using type = Immutable<quant::data::Trade>;
     static constexpr auto storage = StorageKind::ImmutableOwned;
 };
-}
+} // namespace lexongine
 
 namespace lexongine::qaedalus {
 
 enum class ReplayDeliveryMode { AnalyticalChecked, OrderedEvent };
 struct ReplayRequirements {
     bool ordering, groups, initial_state, allow_degraded, explicit_partial;
-    ReplayRequirements(bool order, bool event_groups, bool initialized, bool degraded, bool partial) noexcept
-        : ordering(order), groups(event_groups), initial_state(initialized), allow_degraded(degraded), explicit_partial(partial) {}
+    ReplayRequirements(bool order, bool event_groups, bool initialized, bool degraded,
+                       bool partial) noexcept
+        : ordering(order), groups(event_groups), initial_state(initialized),
+          allow_degraded(degraded), explicit_partial(partial) {}
     [[nodiscard]] quant::integrity::ConsumerRequirements canonical() const noexcept {
         return {ordering, groups, initial_state, allow_degraded, explicit_partial};
     }
@@ -44,7 +46,9 @@ struct ReplaySourceBinding {
     ImplementationIdentity implementation;
     ModulePin pin;
 };
-struct ReplayStatistics { std::uint64_t scanned, selected, filtered; };
+struct ReplayStatistics {
+    std::uint64_t scanned, selected, filtered;
+};
 struct TradeReplayRecord {
     Reservation delivery_charge;
     quant::data::Trade value;
@@ -54,49 +58,54 @@ struct TradeReplayRecord {
 };
 using TradeReplayDelivery = std::variant<TradeReplayRecord, SourceEnd>;
 class TradeReplayCursor {
-public:
-    TradeReplayCursor(TradeReplayCursor&&) noexcept;
-    TradeReplayCursor& operator=(TradeReplayCursor&&) noexcept;
+  public:
+    TradeReplayCursor(TradeReplayCursor &&) noexcept;
+    TradeReplayCursor &operator=(TradeReplayCursor &&) noexcept;
     ~TradeReplayCursor() noexcept;
-    TradeReplayCursor(const TradeReplayCursor&) = delete;
-    TradeReplayCursor& operator=(const TradeReplayCursor&) = delete;
+    TradeReplayCursor(const TradeReplayCursor &) = delete;
+    TradeReplayCursor &operator=(const TradeReplayCursor &) = delete;
     // Host-only scheduling descriptor; observing it never advances delivery.
-    [[nodiscard]] const TimingDescriptor* descriptor() const noexcept;
-    [[nodiscard]] Result<TradeReplayDelivery> next(const UpdateContext&) noexcept;
+    [[nodiscard]] const TimingDescriptor *descriptor() const noexcept;
+    [[nodiscard]] Result<TradeReplayDelivery> next(const UpdateContext &) noexcept;
     [[nodiscard]] Result<SourceEnd> finish() noexcept;
-private:
+
+  private:
     friend class TradeReplayData;
     struct State;
     explicit TradeReplayCursor(std::unique_ptr<State>) noexcept;
     std::unique_ptr<State> state_;
 };
 class TradeReplayData {
-public:
-    [[nodiscard]] const SourceMetadata& metadata() const noexcept;
-    [[nodiscard]] const ReplayStatistics& statistics() const noexcept;
+  public:
+    [[nodiscard]] const SourceMetadata &metadata() const noexcept;
+    [[nodiscard]] const ReplayStatistics &statistics() const noexcept;
     [[nodiscard]] std::string_view acquisition_id() const noexcept;
-    [[nodiscard]] const ReplaySourceBinding& binding() const noexcept;
-    [[nodiscard]] const quant::storage::DatasetLocalMetadata& dataset_metadata() const noexcept;
+    [[nodiscard]] const ReplaySourceBinding &binding() const noexcept;
+    [[nodiscard]] const quant::storage::DatasetLocalMetadata &dataset_metadata() const noexcept;
     [[nodiscard]] std::span<const TimingDescriptor> timeline() const noexcept;
     [[nodiscard]] static std::uint64_t cursor_state_bytes() noexcept;
     [[nodiscard]] Result<TradeReplayCursor> cursor(std::shared_ptr<ResourceAccount>) const noexcept;
-private:
+
+  private:
     struct Data;
     friend class TradeReplayCursor;
-    friend Result<TradeReplayData> prepare_trade_replay(std::shared_ptr<const quant::storage::MarketDataReader>,
-                                                       const ReplaySourceBinding&, std::shared_ptr<ResourceAccount>) noexcept;
+    friend Result<TradeReplayData>
+    prepare_trade_replay(std::shared_ptr<const quant::storage::MarketDataReader>,
+                         const ReplaySourceBinding &, std::shared_ptr<ResourceAccount>) noexcept;
     explicit TradeReplayData(std::shared_ptr<const Data> data) noexcept : data_(std::move(data)) {}
     std::shared_ptr<const Data> data_;
 };
 
 [[nodiscard]] TypeContract trade_interpretation();
-[[nodiscard]] Result<TradeReplayData> prepare_trade_replay(
-    std::shared_ptr<const quant::storage::MarketDataReader>, const ReplaySourceBinding&,
-    std::shared_ptr<ResourceAccount>) noexcept;
+[[nodiscard]] Result<TradeReplayData>
+prepare_trade_replay(std::shared_ptr<const quant::storage::MarketDataReader>,
+                     const ReplaySourceBinding &, std::shared_ptr<ResourceAccount>) noexcept;
 
-[[nodiscard]] Result<RegisteredType<quant::data::Trade>> register_trade_type(Registry&, ModulePin) noexcept;
-[[nodiscard]] Result<void> register_trade_replay_source(SourceResolver&, std::string provider_name,
-    RegisteredType<quant::data::Trade>, std::shared_ptr<const quant::storage::MarketDataReader>,
-    const ReplaySourceBinding&, std::shared_ptr<ResourceAccount> registration_account) noexcept;
+[[nodiscard]] Result<RegisteredType<quant::data::Trade>> register_trade_type(Registry &,
+                                                                             ModulePin) noexcept;
+[[nodiscard]] Result<void> register_trade_replay_source(
+    SourceResolver &, std::string provider_name, RegisteredType<quant::data::Trade>,
+    std::shared_ptr<const quant::storage::MarketDataReader>, const ReplaySourceBinding &,
+    std::shared_ptr<ResourceAccount> registration_account) noexcept;
 
 } // namespace lexongine::qaedalus

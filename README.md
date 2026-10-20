@@ -80,3 +80,8 @@ The standalone build includes the engine, reference components and the small set
 of canonical types/checksum helpers they need. The broader Qaedalus market-data
 reader integration is optional and uses an external checkout. Orders, fills,
 portfolio accounting and live execution are outside this repository's scope.
+
+## Contributing
+
+See [code style and checks](docs/contributing.md) for pinned formatters, Python lint,
+the local check command and the GitHub Actions style job.

@@ -6,3 +6,5 @@
 /CMakeUserPresets.json
 __pycache__/
 *.py[cod]
+/.venv-quality/
+/.ruff_cache/

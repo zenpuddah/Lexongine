@@ -1,6 +1,22 @@
 # Verification
 
-## Test profiles
+## Formatting and lint update — 2026-10-20
+
+The formatted public tree passes the pinned [style checks](contributing.md),
+including Python lint and a no-change formatter check. A fresh macOS arm64 Debug
+standalone build passes **24/24 tests**. The four optional reader/integration tests
+also pass against the formatted public Quadeplus tree, using Arrow/Parquet 26.0.0.
+Canonical headers and the file-integrity helper remain byte-identical in both repos.
+
+All 104 existing C++ files reproduce exactly from the pinned formatter applied to
+the preceding release source, and CMake token sequences are unchanged. Python AST
+comparison accounts for two local lambda-to-function lint cleanups in the independent
+checker; other Python syntax trees are unchanged. Two documented import-order lint
+exceptions preserve bytecode suppression before local verification imports.
+GitHub Actions checks formatting and Python lint; native runtime verification is
+the separate macOS profile described here.
+
+## Initial v1.0.0 test profiles
 
 The standalone v1 release tree passed **24/24 tests** in both normal and ASan/UBSan
 builds on macOS arm64. The external Qaedalus profile passed **28/28 tests** in a

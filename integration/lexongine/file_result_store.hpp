@@ -4,7 +4,14 @@
 #include "lexongine/plugins.hpp"
 #include "quant/lexongine/components.hpp"
 namespace lexongine {
-enum class StoreFaultPoint { PayloadWrite, ManifestWrite, MarkerWrite, BeforePublish, AfterPublish, Reconcile };
+enum class StoreFaultPoint {
+    PayloadWrite,
+    ManifestWrite,
+    MarkerWrite,
+    BeforePublish,
+    AfterPublish,
+    Reconcile
+};
 struct FileStoreLimits {
     StoreServiceLimits service;
     MetadataLimits metadata;
@@ -13,16 +20,21 @@ struct FileStoreLimits {
     std::optional<MetadataLimits> snapshot_metadata{};
 };
 class FileResultStore {
-public:
-    static Result<FileResultStore> create(LocalCacheConfiguration, RegisteredType<quant::data::Price>, HostBuild,
-        std::shared_ptr<ResourceAccount>, FileStoreLimits,
-        std::function<Result<void>(StoreFaultPoint)> fault = {}) noexcept;
-    [[nodiscard]] std::shared_ptr<ResultStore> service() const noexcept { return service_; }
+  public:
+    static Result<FileResultStore>
+    create(LocalCacheConfiguration, RegisteredType<quant::data::Price>, HostBuild,
+           std::shared_ptr<ResourceAccount>, FileStoreLimits,
+           std::function<Result<void>(StoreFaultPoint)> fault = {}) noexcept;
+    [[nodiscard]] std::shared_ptr<ResultStore> service() const noexcept {
+        return service_;
+    }
     [[nodiscard]] Result<void> cleanup_unaccepted() noexcept;
-private:
+
+  private:
     struct State;
-    FileResultStore(std::shared_ptr<State> state,std::shared_ptr<ResultStore> service):state_(std::move(state)),service_(std::move(service)){}
+    FileResultStore(std::shared_ptr<State> state, std::shared_ptr<ResultStore> service)
+        : state_(std::move(state)), service_(std::move(service)) {}
     std::shared_ptr<State> state_;
     std::shared_ptr<ResultStore> service_;
 };
-}
+} // namespace lexongine

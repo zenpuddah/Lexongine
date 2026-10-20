@@ -61,8 +61,9 @@ cmake --build build/qaedalus -j 4
 ctest --test-dir build/qaedalus --output-on-failure
 ```
 
-The compatible market-data baseline is `zenpuddah/quant-project` commit
-`f75cd3c179f3b070f9a85c054ec3704b89f4cb69`. This adapter uses checked reader APIs and
+Use the public [Quadeplus](https://github.com/zenpuddah/Quadeplus) `release` branch
+with matching canonical headers; configuration checks their exact bytes. This
+adapter uses checked reader APIs and
 preserves acquisition-scoped ordering; it does not sort events by timestamp or
 construct Bars from Trades. Arrow/Parquet 26.0.0 is the verified native package pair.
 

@@ -13,8 +13,12 @@ import sys
 
 def invoke(executable, arguments, input_text):
     result = subprocess.run(
-        [str(executable), *map(str, arguments)], input=input_text, text=True,
-        capture_output=True, check=True, timeout=30,
+        [str(executable), *map(str, arguments)],
+        input=input_text,
+        text=True,
+        capture_output=True,
+        check=True,
+        timeout=30,
     )
     if result.stderr:
         raise AssertionError(f"unexpected probe diagnostics: {result.stderr}")
@@ -34,8 +38,13 @@ def main():
         (random_source.randint(minimum, maximum), random_source.randint(1, (1 << 64) - 1))
         for _ in range(256)
     ]
-    actual = invoke(executable, ["round"], "".join(f"{value} {count}\n" for value, count in round_cases))
-    expected = [f"{index} {round(Fraction(value, count))}" for index, (value, count) in enumerate(round_cases)]
+    actual = invoke(
+        executable, ["round"], "".join(f"{value} {count}\n" for value, count in round_cases)
+    )
+    expected = [
+        f"{index} {round(Fraction(value, count))}"
+        for index, (value, count) in enumerate(round_cases)
+    ]
     if actual != expected:
         raise AssertionError("independent signed rounding comparison failed")
 
@@ -46,16 +55,20 @@ def main():
             datasets.append((window, bound, values))
     sma_updates = 0
     for window, bound, values in datasets:
-        actual = invoke(executable, ["sma", window, bound], "".join(f"{value}\n" for value in values))
+        actual = invoke(
+            executable, ["sma", window, bound], "".join(f"{value}\n" for value in values)
+        )
         expected = []
         for index in range(len(values)):
             if index + 1 < window:
                 expected.append(f"{index} warming")
             else:
-                mean = round(Fraction(sum(values[index + 1 - window:index + 1]), window))
+                mean = round(Fraction(sum(values[index + 1 - window : index + 1]), window))
                 expected.append(f"{index} published {mean}")
         if actual != expected:
-            raise AssertionError(f"independent SMA comparison failed for window={window}, B={bound}")
+            raise AssertionError(
+                f"independent SMA comparison failed for window={window}, B={bound}"
+            )
         sma_updates += len(values)
 
     lag_updates = 0
@@ -69,8 +82,10 @@ def main():
         if actual != expected:
             raise AssertionError(f"independent lag comparison failed for lag={lag}")
         lag_updates += len(values)
-    print(f"arithmetic oracle: seed={seed}, rounding={len(round_cases)}, "
-          f"SMA_runs={len(datasets)}, SMA_updates={sma_updates}, lag_runs=8, lag_updates={lag_updates}: passed")
+    print(
+        f"arithmetic oracle: seed={seed}, rounding={len(round_cases)}, "
+        f"SMA_runs={len(datasets)}, SMA_updates={sma_updates}, lag_runs=8, lag_updates={lag_updates}: passed"
+    )
 
 
 if __name__ == "__main__":
